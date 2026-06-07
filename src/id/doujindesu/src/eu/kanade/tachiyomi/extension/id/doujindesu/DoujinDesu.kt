@@ -24,6 +24,7 @@ import keiyoushi.utils.getPreferencesLazy
 import keiyoushi.utils.tryParse
 import okhttp3.FormBody
 import okhttp3.Headers
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Request
 import okhttp3.Response
 import org.jsoup.Jsoup
@@ -103,24 +104,26 @@ class DoujinDesu :
     // Search & Filter
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-        val baseUrlWithPage = if (page == 1) "$baseUrl/" else "$baseUrl/page/$page/"
-        val finalUrl = if (query.isNotBlank()) "$baseUrlWithPage?s=${query.replace(" ", "+")}" else baseUrlWithPage
+        val title = if (query.isNotBlank()) query.trim() else filters.firstInstanceOrNull<TitleFilter>()?.state?.trim().orEmpty()
+        val author = filters.firstInstanceOrNull<AuthorFilter>()?.state?.trim().orEmpty()
+        val character = filters.firstInstanceOrNull<CharacterFilter>()?.state?.trim().orEmpty()
+        val status = filters.firstInstanceOrNull<StatusList>()?.let { it.values[it.state].toQueryParam() }.orEmpty()
+        val type = filters.firstInstanceOrNull<CategoryNames>()?.let { it.values[it.state].toQueryParam() }.orEmpty()
+        val order = filters.firstInstanceOrNull<OrderBy>()?.let { it.values[it.state].toQueryParam() }.orEmpty()
 
-        val agsFilter = filters.firstInstanceOrNull<AuthorGroupSeriesFilter>()
-        val agsValueFilter = filters.firstInstanceOrNull<AuthorGroupSeriesValueFilter>()
-        val selectedOption = agsFilter?.values?.getOrNull(agsFilter.state)
-        val filterValue = agsValueFilter?.state?.trim() ?: ""
+        val path = if (page == 1) "$baseUrl/manga/" else "$baseUrl/manga/page/$page/"
+        val url = path.toHttpUrlOrNull()?.newBuilder()
+            ?.addQueryParameter("title", title)
+            ?.addQueryParameter("author", author)
+            ?.addQueryParameter("character", character)
+            ?.addQueryParameter("statusx", status)
+            ?.addQueryParameter("typex", type)
+            ?.addQueryParameter("order", order)
+            ?.build()
+            ?.toString()
+            ?: "$path?title=${title.replace(" ", "+")}&author=${author.replace(" ", "+")}&character=${character.replace(" ", "+")}&statusx=$status&typex=$type&order=$order"
 
-        if (query.isBlank() && selectedOption != null && selectedOption.key.isNotBlank()) {
-            val typePath = selectedOption.key
-            val url = if (filterValue.isBlank()) {
-                if (page == 1) "$baseUrl/$typePath/" else "$baseUrl/$typePath/page/$page/"
-            } else {
-                if (page == 1) "$baseUrl/$typePath/$filterValue/" else "$baseUrl/$typePath/$filterValue/page/$page/"
-            }
-            return GET(url, headers)
-        }
-        return GET(finalUrl, headers)
+        return GET(url, headers)
     }
 
     override fun searchMangaParse(response: Response): MangasPage {
@@ -131,20 +134,14 @@ class DoujinDesu :
     }
 
     override fun getFilterList() = FilterList(
-        Filter.Header("NB: Fitur Emergency, jadi maklumi aja jika ada bug!"),
+        Filter.Header("NB: Gunakan filter seperti web asli. Pencarian teks akan menjadi judul jika diisi."),
         Filter.Separator(),
-        Filter.Header("NB: Tidak bisa digabungkan dengan memakai pencarian teks dan filter lainnya, serta harus memasukkan nama Author, Group dan Series secara lengkap!"),
-        AuthorGroupSeriesFilter(authorGroupSeriesOptions),
-        AuthorGroupSeriesValueFilter(),
-        Filter.Separator(),
-        /* Will be used later if DoujinDesu aleardy fix their problem
-        Filter.Header("NB: Untuk Character Filter akan mengambil hasil apapun jika diinput, misal 'alice', maka hasil akan memunculkan semua Karakter yang memiliki nama 'Alice', bisa digabungkan dengan filter lainnya"),
+        TitleFilter(),
+        AuthorFilter(),
         CharacterFilter(),
         StatusList(statusList),
         CategoryNames(categoryNames),
         OrderBy(orderBy),
-        GenreList(getGenreList()),
-         */
     )
 
     // Detail Parse
