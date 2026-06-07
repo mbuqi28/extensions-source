@@ -2,8 +2,12 @@ package eu.kanade.tachiyomi.extension.id.doujindesu
 
 import eu.kanade.tachiyomi.source.model.Filter
 
+class TitleFilter : Filter.Text("Judul")
+class AuthorFilter : Filter.Text("Penulis")
+
 class Category(title: String, val key: String) : Filter.TriState(title) {
     override fun toString(): String = name
+    fun toQueryParam(): String = key
 }
 
 class Genre(name: String, val id: String = name) : Filter.CheckBox(name) {
@@ -12,10 +16,12 @@ class Genre(name: String, val id: String = name) : Filter.CheckBox(name) {
 
 class Order(title: String, val key: String) : Filter.TriState(title) {
     override fun toString(): String = name
+    fun toQueryParam(): String = key
 }
 
 class Status(title: String, val key: String) : Filter.TriState(title) {
     override fun toString(): String = name
+    fun toQueryParam(): String = key
 }
 
 class AuthorGroupSeriesOption(val display: String, val key: String) {
